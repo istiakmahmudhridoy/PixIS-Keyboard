@@ -1,0 +1,42 @@
+name: Build PixIS APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack PixIS.zip
+        run: |
+          test -f PixIS.zip || { echo "PixIS.zip not found in the repo root"; ls; exit 1; }
+          mkdir proj
+          unzip -q PixIS.zip -d proj
+          DIR=$(dirname "$(find proj -name settings.gradle.kts | head -n 1)")
+          echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build release APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir out
+          cp "$PROJECT_DIR"/app/build/outputs/apk/release/*.apk out/PixIS-phase1.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PixIS-apk
+          path: out/PixIS-phase1.apk
